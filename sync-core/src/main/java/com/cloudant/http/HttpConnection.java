@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.LinkedList;
+
 
 /**
  * Created by tomblench on 23/03/15.
@@ -82,6 +84,11 @@ public class HttpConnection  {
 
     private static String userAgent = getUserAgent();
 
+    private static final int maxRetries = 10;
+
+    public final LinkedList<HttpConnectionFilter> requestFilters;
+    public final LinkedList<HttpConnectionFilter> responseFilters;
+
     public HttpConnection(String requestMethod,
                           URL url,
                           String contentType) {
@@ -89,6 +96,8 @@ public class HttpConnection  {
         this.url = url;
         this.contentType = contentType;
         this.requestProperties = new HashMap<String, String>();
+        this.requestFilters = new LinkedList<HttpConnectionFilter>();
+        this.responseFilters = new LinkedList<HttpConnectionFilter>();
     }
 
     /**
@@ -185,25 +194,74 @@ public class HttpConnection  {
                 connection.setChunkedStreamingMode(1024);
             }
 
-            // See "8.2.3 Use of the 100 (Continue) Status" in http://tools.ietf.org/html/rfc2616
-            // Attempting to write to the connection's OutputStream may cause an exception to be
-            // thrown. This is useful because it avoids sending large request bodies (such as
-            // attachments) if the server is going to reject our request. Reasons for rejecting
-            // requests could be 401 Unauthorized (eg cookie needs to be refreshed), etc.
-            connection.setRequestProperty("Expect", "100-continue");
+        boolean retry = true;
+        int n = maxRetries;
+        while (retry && n-- > 0) {
 
-            int bufSize = 1024;
-            int nRead = 0;
-            byte[] buf = new byte[bufSize];
-            InputStream is = input;
-            OutputStream os = connection.getOutputStream();
-
-            while((nRead = is.read(buf)) >= 0) {
-                os.write(buf, 0, nRead);
+            System.setProperty("http.keepAlive", "false");
+            connection = (HttpURLConnection) url.openConnection();
+            for (String key : requestProperties.keySet()) {
+                connection.setRequestProperty(key, requestProperties.get(key));
             }
-            os.flush();
-            // we do not call os.close() - on some JVMs this incurs a delay of several seconds
-            // see http://stackoverflow.com/questions/19860436
+            // always read the result, so we can retrieve the HTTP response code
+            connection.setDoInput(true);
+            connection.setRequestMethod(requestMethod);
+            if (contentType != null) {
+                connection.setRequestProperty("Content-type", contentType);
+            }
+            if (url.getUserInfo() != null) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                OutputStream bos = Base64OutputStreamFactory.get(baos);
+                bos.write(url.getUserInfo().getBytes());
+                bos.flush();
+                bos.close();
+                String encodedAuth = baos.toString();
+                connection.setRequestProperty("Authorization", String.format("Basic %s", encodedAuth));
+            }
+
+            HttpConnectionFilterContext currentContext = new HttpConnectionFilterContext(this);
+            for (HttpConnectionFilter requestFilter : requestFilters) {
+                currentContext = requestFilter.filter(currentContext);
+            }
+
+            if (input != null) {
+                connection.setDoOutput(true);
+                if (inputLength != -1) {
+                    // TODO on 1.7 upwards this method takes a long, otherwise int
+                    connection.setFixedLengthStreamingMode((int)this.inputLength);
+                } else {
+                    // TODO some situations where we can't do chunking, like multipart/related
+                    /// https://issues.apache.org/jira/browse/COUCHDB-1403
+                    connection.setChunkedStreamingMode(1024);
+                }
+
+                // See "8.2.3 Use of the 100 (Continue) Status" in http://tools.ietf.org/html/rfc2616
+                // Attempting to write to the connection's OutputStream may cause an exception to be
+                // thrown. This is useful because it avoids sending large request bodies (such as
+                // attachments) if the server is going to reject our request. Reasons for rejecting
+                // requests could be 401 Unauthorized (eg cookie needs to be refreshed), etc.
+                connection.setRequestProperty("Expect", "100-continue");
+
+                int bufSize = 1024;
+                int nRead = 0;
+                byte[] buf = new byte[bufSize];
+                InputStream is = input;
+                OutputStream os = connection.getOutputStream();
+
+                while((nRead = is.read(buf)) >= 0) {
+                    os.write(buf, 0, nRead);
+                }
+                os.flush();
+                // we do not call os.close() - on some JVMs this incurs a delay of several seconds
+                // see http://stackoverflow.com/questions/19860436
+            }
+
+            for (HttpConnectionFilter responseFilter : responseFilters) {
+                currentContext = responseFilter.filter(currentContext);
+            }
+
+            // retry flag is set from the final step in the response filter pipeline
+            retry = currentContext.replayRequest;
         }
         // return ourselves to allow method chaining
         return this;
