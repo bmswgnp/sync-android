@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.logging.Logger;
 
@@ -57,7 +58,7 @@ import java.util.logging.Logger;
  *         { "rev": "26-30722da17ad35cf1860f126dba391d67" }
  *       ]
  */
-class GetRevisionTask implements Callable<DocumentRevsList> {
+class GetRevisionTask implements Callable<List<DocumentRevsList>> {
 
     private static final String LOG_TAG = "GetRevisionTask";
     private static final Logger logger = Logger.getLogger(GetRevisionTask.class.getCanonicalName());
@@ -68,13 +69,13 @@ class GetRevisionTask implements Callable<DocumentRevsList> {
     private boolean pullAttachmentsInline;
     CouchDB sourceDb;
 
-    public static Callable<DocumentRevsList> createGetRevisionTask(CouchDB sourceDb,
+    public static Callable<List<DocumentRevsList>> createGetRevisionTask(CouchDB sourceDb,
                                                                    String docId,
                                                                    Collection<String> openRevisions,
                                                                    Collection<String> attsSince,
                                                                    boolean pullAttachmentsInline) {
         GetRevisionTask task = new GetRevisionTask(sourceDb, docId, openRevisions, attsSince, pullAttachmentsInline);
-        return new RetriableTask<DocumentRevsList>(task);
+        return new RetriableTask<List<DocumentRevsList>>(task);
     }
 
    public GetRevisionTask(CouchDB sourceDb,
@@ -93,12 +94,12 @@ class GetRevisionTask implements Callable<DocumentRevsList> {
     }
 
     @Override
-    public DocumentRevsList call() throws Exception {
+    public List<DocumentRevsList> call() throws Exception {
         logger.finer("Fetching document: " + this.documentId);
-        return new DocumentRevsList(this.sourceDb.getRevisions(documentId,
+        return Arrays.asList(new DocumentRevsList[]{new DocumentRevsList(this.sourceDb.getRevisions(documentId,
                 openRevisions,
                 attsSince,
-                pullAttachmentsInline));
+                pullAttachmentsInline))});
     }
 
     @Override

@@ -37,11 +37,13 @@ import org.apache.commons.codec.binary.Hex;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -54,14 +56,14 @@ import java.util.logging.Logger;
 
 class BasicPullStrategy implements ReplicationStrategy {
 
-    private static final Logger logger = Logger.getLogger(BasicPullStrategy.class.getCanonicalName());
-    private static final String LOG_TAG = "BasicPullStrategy";
+    protected static final Logger logger = Logger.getLogger(BasicPullStrategy.class.getCanonicalName());
+    protected static final String LOG_TAG = "BasicPullStrategy";
     CouchDB sourceDb;
     Replication.Filter filter;
     DatastoreWrapper targetDb;
 
     ExecutorService executor;
-    private PullConfiguration config;
+    protected PullConfiguration config;
 
     int documentCounter = 0;
     int batchCounter = 0;
@@ -267,72 +269,76 @@ class BasicPullStrategy implements ReplicationStrategy {
 
             if (this.cancel) { break; }
 
-            List<Callable<DocumentRevsList>> tasks = createTasks(batch, missingRevisions);
+            List<Callable<List<DocumentRevsList>>> tasks = createTasks(batch, missingRevisions);
             try {
-                List<Future<DocumentRevsList>> futures = executor.invokeAll(tasks);
-                for(Future<DocumentRevsList> future : futures) {
-                    DocumentRevsList result = future.get();
+                List<Future<List<DocumentRevsList>>> futures = executor.invokeAll(tasks);
+                for(Future<List<DocumentRevsList>> future : futures) {
+                    List<DocumentRevsList> resultList = future.get();
+                    for (DocumentRevsList result : resultList) {
 
-                    // We promise not to insert documents after cancel is set
-                    if (this.cancel) { break; }
+                        // We promise not to insert documents after cancel is set
+                        if (this.cancel) {
+                            break;
+                        }
 
-                    // attachments, keyed by docId and revId, so that
-                    // we can add the attachments to the correct leaf
-                    // nodes
-                    HashMap<String[], List<PreparedAttachment>> atts = new HashMap<String[], List<PreparedAttachment>>();
+                        // attachments, keyed by docId and revId, so that
+                        // we can add the attachments to the correct leaf
+                        // nodes
+                        HashMap<String[], List<PreparedAttachment>> atts = new HashMap<String[], List<PreparedAttachment>>();
 
-                    // now put together a list of attachments we need to download
-                    if (!config.pullAttachmentsInline) {
-                        try {
-                            for (DocumentRevs documentRevs : result) {
-                                Map<String, Object> attachments = documentRevs.getAttachments();
-                                // keep track of attachments we are going to prepare
-                                ArrayList<PreparedAttachment> preparedAtts = new ArrayList<PreparedAttachment>();
-                                atts.put(new String[]{documentRevs.getId(), documentRevs.getRev()}, preparedAtts);
+                        // now put together a list of attachments we need to download
+                        if (!config.pullAttachmentsInline) {
+                            try {
+                                for (DocumentRevs documentRevs : result) {
+                                    Map<String, Object> attachments = documentRevs.getAttachments();
+                                    // keep track of attachments we are going to prepare
+                                    ArrayList<PreparedAttachment> preparedAtts = new ArrayList<PreparedAttachment>();
+                                    atts.put(new String[]{documentRevs.getId(), documentRevs.getRev()}, preparedAtts);
 
-                                for (String attachmentName : attachments.keySet()) {
-                                    int revpos = (Integer) ((Map<String, Object>) attachments.get(attachmentName)).get("revpos");
-                                    // do we already have the attachment @ this revpos?
-                                    // look back up the tree for this document and see:
-                                    // if we already have it, then we don't need to fetch it
-                                    DocumentRevs.Revisions revs = documentRevs.getRevisions();
-                                    int offset = revs.getStart() - revpos;
-                                    if (offset >= 0 && offset < revs.getIds().size()) {
-                                        String revId = String.valueOf(revpos) + "-" + revs.getIds().get(offset);
-                                        try {
-                                            BasicDocumentRevision dr = this.targetDb.getDbCore().getDocument(documentRevs.getId(), revId);
+                                    for (String attachmentName : attachments.keySet()) {
+                                        int revpos = (Integer) ((Map<String, Object>) attachments.get(attachmentName)).get("revpos");
+                                        // do we already have the attachment @ this revpos?
+                                        // look back up the tree for this document and see:
+                                        // if we already have it, then we don't need to fetch it
+                                        DocumentRevs.Revisions revs = documentRevs.getRevisions();
+                                        int offset = revs.getStart() - revpos;
+                                        if (offset >= 0 && offset < revs.getIds().size()) {
+                                            String revId = String.valueOf(revpos) + "-" + revs.getIds().get(offset);
+                                            try {
+                                                BasicDocumentRevision dr = this.targetDb.getDbCore().getDocument(documentRevs.getId(), revId);
                                                 Attachment a = this.targetDb.getDbCore()
                                                         .getAttachment(dr, attachmentName);
                                                 if (a != null) {
                                                     // skip attachment, already got it
                                                     continue;
                                                 }
-                                        } catch (DocumentNotFoundException e){
-                                            //do nothing, we may not have the document yet
+                                            } catch (DocumentNotFoundException e) {
+                                                //do nothing, we may not have the document yet
+                                            }
                                         }
+                                        String contentType = ((Map<String, String>) attachments.get(attachmentName)).get("content_type");
+                                        String encoding = (String) ((Map<String, Object>) attachments.get(attachmentName)).get("encoding");
+                                        UnsavedStreamAttachment usa = this.sourceDb.getAttachmentStream(documentRevs.getId(), documentRevs.getRev(), attachmentName, contentType, encoding);
+
+                                        // by preparing the attachment here, it is downloaded outside of the database transaction
+                                        preparedAtts.add(this.targetDb.prepareAttachment(usa));
                                     }
-                                    String contentType = ((Map<String, String>) attachments.get(attachmentName)).get("content_type");
-                                    String encoding = (String) ((Map<String, Object>) attachments.get(attachmentName)).get("encoding");
-                                    UnsavedStreamAttachment usa = this.sourceDb.getAttachmentStream(documentRevs.getId(), documentRevs.getRev(), attachmentName, contentType, encoding);
-
-                                    // by preparing the attachment here, it is downloaded outside of the database transaction
-                                    preparedAtts.add(this.targetDb.prepareAttachment(usa));
                                 }
+                            } catch (Exception e) {
+                                logger.log(Level.SEVERE,
+                                        "There was a problem downloading an attachment to the" +
+                                                " datastore, terminating replication",
+                                        e);
+                                this.cancel = true;
                             }
-                        } catch (Exception e) {
-                            logger.log(Level.SEVERE,
-                                    "There was a problem downloading an attachment to the" +
-                                            " datastore, terminating replication",
-                                    e);
-                            this.cancel = true;
                         }
+
+                        if (this.cancel)
+                            break;
+
+                        this.targetDb.bulkInsert(result, atts, config.pullAttachmentsInline);
+                        changesProcessed++;
                     }
-
-                    if (this.cancel)
-                        break;
-
-                    this.targetDb.bulkInsert(result, atts, config.pullAttachmentsInline);
-                    changesProcessed++;
                 }
             } catch (InterruptedException ex) {
                 // invokeAll() or future.get() was interrupted, expected on
@@ -372,7 +378,7 @@ class BasicPullStrategy implements ReplicationStrategy {
 
     private ChangesResultWrapper nextBatch() throws DatastoreException {
         final Object lastCheckpoint = this.targetDb.getCheckpoint(this.getReplicationId());
-        logger.fine("last checkpoint "+lastCheckpoint);
+        logger.fine("last checkpoint " + lastCheckpoint);
         ChangesResult changeFeeds = this.sourceDb.changes(
                 filter,
                 lastCheckpoint,
@@ -381,27 +387,33 @@ class BasicPullStrategy implements ReplicationStrategy {
         return new ChangesResultWrapper(changeFeeds);
     }
 
-    public List<Callable<DocumentRevsList>> createTasks(List<String> ids,
+    protected Set<String> getPossibleAncestors(String id, Collection<String> revisionIds){
+        // get list for atts_since (these are possible ancestors we have, it's ok to be eager
+        // and get all revision IDs higher up in the tree even if they're not our ancestors and
+        // belong to a different subtree)
+        HashSet<String> possibleAncestors = new HashSet<String>();
+        for (String revId : revisionIds) {
+            List<String> thesePossibleAncestors = targetDb.getDbCore().getPossibleAncestorRevisionIDs(id, revId, 50);
+            if (thesePossibleAncestors != null) {
+                possibleAncestors.addAll(thesePossibleAncestors);
+            }
+        }
+        return possibleAncestors;
+    }
+
+    public List<Callable<List<DocumentRevsList>>> createTasks(List<String> ids,
                                                         Map<String, Collection<String>> revisions) {
 
 
-        List<Callable<DocumentRevsList>> tasks = new ArrayList<Callable<DocumentRevsList>>();
+        List<Callable<List<DocumentRevsList>>> tasks = new ArrayList<Callable<List<DocumentRevsList>>>();
         for(String id : ids) {
             //skip any document with an empty id
             if(id.isEmpty()){
                 logger.info("Found document with empty ID in change feed, skipping");
                 continue;
             }
-            // get list for atts_since (these are possible ancestors we have, it's ok to be eager
-            // and get all revision IDs higher up in the tree even if they're not our ancestors and
-            // belong to a different subtree)
-            HashSet<String> possibleAncestors = new HashSet<String>();
-            for (String revId : revisions.get(id)) {
-                List<String> thesePossibleAncestors = targetDb.getDbCore().getPossibleAncestorRevisionIDs(id, revId, 50);
-                if (thesePossibleAncestors != null) {
-                    possibleAncestors.addAll(thesePossibleAncestors);
-                }
-            }
+
+            Set<String> possibleAncestors = getPossibleAncestors(id, revisions.get(id));
             tasks.add(GetRevisionTask.createGetRevisionTask(this.sourceDb,
                     id,
                     revisions.get(id),

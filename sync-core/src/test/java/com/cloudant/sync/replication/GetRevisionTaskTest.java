@@ -75,12 +75,12 @@ public class GetRevisionTaskTest {
 
         // exec
         GetRevisionTask task = new GetRevisionTask(sourceDB, docId, revIds, attsSince, pullAttachmentsInline);
-        DocumentRevsList actualDocumentRevs = task.call();
+        List<DocumentRevsList> actualDocumentRevs = task.call();
 
         // verify
         verify(sourceDB).getRevisions(docId, revIds, attsSince, pullAttachmentsInline);
 
-        Assert.assertEquals(expected, actualDocumentRevs.get(0).getRevisions().getIds());
+        Assert.assertEquals(expected, actualDocumentRevs.get(0).get(0).getRevisions().getIds());
     }
 
     @Test(expected = IllegalArgumentException.class)
