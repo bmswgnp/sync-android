@@ -86,8 +86,12 @@ public class HttpConnection  {
 
     private static final int maxRetries = 10;
 
-    public final LinkedList<HttpConnectionFilter> requestFilters;
-    public final LinkedList<HttpConnectionFilter> responseFilters;
+    public final LinkedList<HttpConnectionRequestFilter> requestFilters;
+    public final LinkedList<HttpConnectionResponseFilter> responseFilters;
+
+    //we need to store the response code separately so we don't send a request
+    //before we are ready
+    private int responseCode = -1;
 
     public HttpConnection(String requestMethod,
                           URL url,
@@ -96,8 +100,8 @@ public class HttpConnection  {
         this.url = url;
         this.contentType = contentType;
         this.requestProperties = new HashMap<String, String>();
-        this.requestFilters = new LinkedList<HttpConnectionFilter>();
-        this.responseFilters = new LinkedList<HttpConnectionFilter>();
+        this.requestFilters = new LinkedList<HttpConnectionRequestFilter>();
+        this.responseFilters = new LinkedList<HttpConnectionResponseFilter>();
     }
 
     /**
@@ -199,6 +203,12 @@ public class HttpConnection  {
         while (retry && n-- > 0) {
 
             System.setProperty("http.keepAlive", "false");
+
+            //set the response code to -1 again, to cover retries.
+            this.responseCode = -1;
+
+            System.setProperty("http.keepAlive", "false");
+
             connection = (HttpURLConnection) url.openConnection();
             for (String key : requestProperties.keySet()) {
                 connection.setRequestProperty(key, requestProperties.get(key));
@@ -220,8 +230,9 @@ public class HttpConnection  {
             }
 
             HttpConnectionFilterContext currentContext = new HttpConnectionFilterContext(this);
-            for (HttpConnectionFilter requestFilter : requestFilters) {
-                currentContext = requestFilter.filter(currentContext);
+
+            for (HttpConnectionRequestFilter requestFilter : requestFilters) {
+                currentContext = requestFilter.filterRequest(currentContext);
             }
 
             if (input != null) {
@@ -256,11 +267,13 @@ public class HttpConnection  {
                 // see http://stackoverflow.com/questions/19860436
             }
 
-            for (HttpConnectionFilter responseFilter : responseFilters) {
-                currentContext = responseFilter.filter(currentContext);
+            this.responseCode = connection.getResponseCode();
+
+            for (HttpConnectionResponseFilter responseFilter : responseFilters) {
+                currentContext = responseFilter.filterResponse(currentContext);
             }
 
-            // retry flag is set from the final step in the response filter pipeline
+            // retry flag is set from the final step in the response filterRequest pipeline
             retry = currentContext.replayRequest;
         }
         // return ourselves to allow method chaining
@@ -334,6 +347,7 @@ public class HttpConnection  {
         return connection;
     }
 
+
     private static String getUserAgent() {
         String userAgent;
         String ua = getUserAgentFromResource();
@@ -366,6 +380,14 @@ public class HttpConnection  {
         } catch (Exception ex) {
             return defaultUserAgent;
         }
+    }
+    /**
+     * Get the response code for the request
+     * @return The http response code for the request or -1 if the
+     * request has not been sent yet.
+     */
+    public int getResponseCode() {
+        return this.responseCode;
     }
 
 }

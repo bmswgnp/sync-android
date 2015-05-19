@@ -12,7 +12,6 @@ package com.cloudant.http;
 
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 
 /**
@@ -25,6 +24,7 @@ import java.net.URL;
  * @see com.cloudant.http.HttpConnection
  */
 public class Http {
+
 
     // high level http operations, URL and URI flavoured
 
@@ -87,14 +87,16 @@ public class Http {
     public static HttpConnection connect(String requestMethod,
                                          URL url,
                                          String contentType) {
-        return new HttpConnection(requestMethod, url, contentType);
+        HttpConnection connection = new HttpConnection(requestMethod, url, contentType);
+        return connection;
     }
 
     public static HttpConnection connect(String requestMethod,
                                          URI uri,
                                          String contentType) {
         try {
-            return new HttpConnection(requestMethod, uri.toURL(), contentType);
+            HttpConnection connection = new HttpConnection(requestMethod, uri.toURL(), contentType);
+            return connection;
         } catch (MalformedURLException mue) {
             return null;
         }
