@@ -1,40 +1,40 @@
 package com.cloudant.sync.replication;
 
+import com.cloudant.http.HttpConnection;
 import com.cloudant.mazha.CouchClient;
 import com.cloudant.mazha.DocumentRevs;
-import com.cloudant.mazha.HttpRequests;
-import com.cloudant.mazha.json.JSONHelper;
-import com.cloudant.sync.datastore.DocumentRevision;
 import com.cloudant.sync.datastore.DocumentRevsList;
 import com.cloudant.sync.util.JSONUtils;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.MappingJsonFactory;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import org.apache.commons.io.IOUtils;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLConnection;
-import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLPeerUnverifiedException;
 
 /**
  * Created by ricellis on 11/05/2015.
  */
 public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
-    private Map<String, Object> bulkRequest = new HashMap<String,Object>();
+    public static final JsonFactory JSON_FACTORY = new MappingJsonFactory();
+
+    private Map<String, Object> bulkRequest = new HashMap<String, Object>();
     private List<Map<String, Object>> docs = new ArrayList<Map<String, Object>>();
     private final String dbUrl;
 
@@ -45,17 +45,18 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
                 URI dbUri = client.getRootUri();
                 this.dbUrl = dbUri.toURL().toString();
                 bulkRequest.put("docs", docs);
-            }else{
+            } else {
                 throw new UnsupportedOperationException("BulkPull needs access to a DB URL");
             }
-        }catch(Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException("Error in experimental BulkPullStrategy ", e);
         }
     }
 
-    public void addDocumentToBulkRequest(String id, Collection<String> revisions, Collection<String> ancestors){
-        for (String rev : revisions){
-            Map<String,Object> docRev = new HashMap<String, Object>();
+    public void addDocumentToBulkRequest(String id, Collection<String> revisions,
+                                         Collection<String> ancestors) {
+        for (String rev : revisions) {
+            Map<String, Object> docRev = new HashMap<String, Object>();
             docRev.put("id", id);
             docRev.put("rev", rev);
             docRev.put("atts_since", ancestors);
@@ -65,40 +66,68 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
     @Override
     public List<DocumentRevsList> call() throws Exception {
-
-        List<DocumentRevs> docRevs = new ArrayList<DocumentRevs>();
         URL bgEndpoint = new URI("").toURL();
-        URLConnection urlConn = bgEndpoint.openConnection();
-        if (urlConn instanceof HttpsURLConnection){
-            HttpsURLConnection conn = (HttpsURLConnection) urlConn;
-            conn.setDoOutput(true);
-            conn.setRequestMethod("POST");
-            BufferedOutputStream bos = null;
-            BufferedInputStream bis = null;
-            try {
-                conn.connect();
-                bos = new BufferedOutputStream(conn.getOutputStream());
-                bos.write(JSONUtils.serializeAsBytes(bulkRequest));
-                bos.close();
-                if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    bis = new BufferedInputStream(conn.getInputStream());
-                    int i;
-                    while ((i = bis.read()) != -1){
-                        baos.write(i);
-                    }
-                    //TODO deconstruct multipart
-                    DocumentRevs docRev = JSONUtils.deserialize(baos.toByteArray(), DocumentRevs.class);
-                    docRevs.add(docRev);
-                }
-            }finally{
-                if (bos != null) bos.close();
-                if (bis != null) bis.close();
-                conn.disconnect();
-            }
+        HttpConnection conn = new HttpConnection("POST", bgEndpoint, "application/json");
+        conn.setRequestBody(JSONUtils.serializeAsBytes(bulkRequest));
+        HttpURLConnection httpConn = conn.execute().getConnection();
+        InputStream responseStream = conn.responseAsInputStream();
 
+        try {
+            if (HttpURLConnection.HTTP_OK == httpConn.getResponseCode()) {
+                DocumentRevsList docRevsList = new DocumentRevsList(parseJsonResponse
+                        (responseStream));
+                return Arrays.asList(docRevsList);
+            } else {
+                throw new Exception("Error received from endpoint " + httpConn.getResponseCode()
+                        + " " + httpConn.getResponseMessage());
+            }
+        } finally {
+            IOUtils.closeQuietly(responseStream);
         }
-    return Arrays.asList(new DocumentRevsList[]{new DocumentRevsList(docRevs)});
     }
 
+    static List<DocumentRevs> parseJsonResponse(InputStream responseStream) throws IOException {
+        final List<DocumentRevs> docRevs = new ArrayList<DocumentRevs>();
+        JsonParser parser = JSON_FACTORY.createParser(responseStream);
+        if (JsonToken.START_OBJECT == parser.nextToken()
+                && JsonToken.FIELD_NAME == parser.nextToken()
+                && parser.getCurrentName().equals("results")
+                && JsonToken.START_ARRAY == parser.nextToken()) {
+            while (JsonToken.END_ARRAY != parser.nextToken()) {
+                //expect only objects here
+                if (JsonToken.START_OBJECT == parser.getCurrentToken()) {
+                    //can be docs array or id
+                    //fast forward to the docs array
+                    while (JsonToken.FIELD_NAME == parser.nextToken() && !parser.getCurrentName()
+                            .equals("docs")) {
+                        parser.nextToken();
+                    }
+                    if (JsonToken.START_ARRAY == parser.nextToken()) {
+                        while (JsonToken.END_ARRAY != parser.nextToken()) {
+                            if (JsonToken.START_OBJECT == parser.getCurrentToken()
+                                    && JsonToken.FIELD_NAME == parser.nextToken()) {
+                                if (parser.getCurrentName().equals("ok") && JsonToken
+                                        .START_OBJECT == parser.nextToken()) {
+                                    //read the DocumentRevs and add it to the list
+                                    docRevs.add(parser.readValueAs(DocumentRevs.class));
+                                } else if (parser.getCurrentName().equals("error")) {
+                                    //TODO error case
+                                } else {
+                                    //TODO not ok or error
+                                }
+                            }
+                        }
+                    } else {
+                        //TODO error not an array of docs
+                    }
+                } else {
+                    //TODO error not an object in results array
+                }
+            }
+        } else {
+            //TODO error not a results array
+        }
+
+        return docRevs;
+    }
 }
