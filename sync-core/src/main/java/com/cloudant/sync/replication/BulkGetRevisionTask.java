@@ -30,20 +30,22 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
     public static final JsonFactory JSON_FACTORY = new MappingJsonFactory();
 
+    private static final String PROXY_URL;
+    static {
+        //check to see if a proxy has been set
+        PROXY_URL = System.getProperty("cloudant.db.proxy");
+    }
+
     private Map<String, Object> bulkRequest = new HashMap<String, Object>();
     private List<Map<String, Object>> docs = new ArrayList<Map<String, Object>>();
-    private final String dbUrl;
+    private final URL dbUrl;
+    private final boolean pullAttachmentsInline;
 
-    public BulkGetRevisionTask(CouchDB sourceDb, boolean pullAttachmentsInline) {
+    public BulkGetRevisionTask(URI dbUri, boolean pullAttachmentsInline) {
         try {
-            if (sourceDb instanceof CouchClientWrapper) {
-                CouchClient client = ((CouchClientWrapper) sourceDb).getCouchClient();
-                URI dbUri = client.getRootUri();
-                this.dbUrl = dbUri.toURL().toString();
-                bulkRequest.put("docs", docs);
-            } else {
-                throw new UnsupportedOperationException("BulkPull needs access to a DB URL");
-            }
+            this.dbUrl = dbUri.toURL();
+            bulkRequest.put("docs", docs);
+            this.pullAttachmentsInline = pullAttachmentsInline;
         } catch (Exception e) {
             throw new RuntimeException("Error in experimental BulkPullStrategy ", e);
         }
@@ -62,8 +64,18 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
     @Override
     public List<DocumentRevsList> call() throws Exception {
-        URL bgEndpoint = new URI("").toURL();
+        //use the proxy url if set, otherwise use the db
+        String dbLocation = (PROXY_URL == null) ? dbUrl.toString() : PROXY_URL;
+        URL bgEndpoint = new URI(dbLocation + "/_bulk_get?attachments=" +
+                pullAttachmentsInline + "&revs=true").toURL();
         HttpConnection conn = new HttpConnection("POST", bgEndpoint, "application/json");
+
+        //if we are using a proxy then we supply the DB as X-Cloudant-URL
+        if (PROXY_URL != null) {
+            conn.requestProperties.put("X-Cloudant-URL", dbUrl.toString());
+        }
+
+        //put the json in the request
         conn.setRequestBody(JSONUtils.serializeAsBytes(bulkRequest));
         HttpURLConnection httpConn = conn.execute().getConnection();
         InputStream responseStream = conn.responseAsInputStream();

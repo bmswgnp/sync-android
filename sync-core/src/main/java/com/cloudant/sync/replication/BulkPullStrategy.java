@@ -36,6 +36,7 @@ import com.google.common.eventbus.EventBus;
 import org.apache.commons.codec.binary.Hex;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -56,12 +57,16 @@ import java.util.logging.Logger;
 
 class BulkPullStrategy extends BasicPullStrategy {
 
+    private final URI rootUri;
+
     public BulkPullStrategy(PullReplication pullReplication) {
         super(pullReplication);
+        this.rootUri = pullReplication.getCouchConfig().getRootUri();
     }
 
     public BulkPullStrategy(PullReplication pullReplication, ExecutorService executorService, PullConfiguration config) {
         super(pullReplication, executorService, config);
+        this.rootUri = pullReplication.getCouchConfig().getRootUri();
     }
 
     @Override
@@ -69,7 +74,7 @@ class BulkPullStrategy extends BasicPullStrategy {
                                                         Map<String, Collection<String>> revisions) {
 
         List<Callable<List<DocumentRevsList>>> tasks = new ArrayList<Callable<List<DocumentRevsList>>>(1);
-        BulkGetRevisionTask bulkTask = new BulkGetRevisionTask(sourceDb,config.pullAttachmentsInline);
+        BulkGetRevisionTask bulkTask = new BulkGetRevisionTask(rootUri,config.pullAttachmentsInline);
         tasks.add(bulkTask);
         for(String id : ids) {
             //get the possible ancestors
