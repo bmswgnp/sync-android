@@ -64,6 +64,12 @@ task performanceTest(type: Test, dependsOn: testClasses) {
     }
 }
 
+task dbProxyTest(type: Test, dependsOn: testClasses) {
+    useJUnit {
+        includeCategories 'com.cloudant.common.RequireDBProxyEndpoint'
+    }
+}
+
 task systemTest(type: Test, dependsOn: testClasses) {
     // Run all tests
 }

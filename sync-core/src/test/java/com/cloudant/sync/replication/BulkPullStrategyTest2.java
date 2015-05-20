@@ -1,6 +1,6 @@
 package com.cloudant.sync.replication;
 
-import com.cloudant.common.RequireRunningCouchDB;
+import com.cloudant.common.RequireDBProxyEndpoint;
 
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
  * Replaces the BasicPullStrategy with a BulkPullStrategy and then runs the same set of tests as
  * the BasicPullStrategy.
  */
-@Category(RequireRunningCouchDB.class)
+@Category(RequireDBProxyEndpoint.class)
 public class BulkPullStrategyTest2 extends BasicPullStrategyTest2 {
 
     @BeforeClass
