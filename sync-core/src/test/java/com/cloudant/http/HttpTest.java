@@ -136,6 +136,7 @@ public class HttpTest extends CouchTestBase {
 
         if(IGNORE_AUTH_HEADERS){
             System.err.println("Ignore cookie filters");
+            return;
         }
 
         CookieFilter filter = new CookieFilter(System.getProperty("test.couch.username"),System.getProperty("test.couch.password"));
@@ -174,6 +175,7 @@ public class HttpTest extends CouchTestBase {
 
         if(IGNORE_AUTH_HEADERS){
             System.err.println("Ignore cookie filters");
+            return;
         }
 
         CookieFilter filter = new CookieFilter(System.getProperty("test.couch.username"),System.getProperty("test.couch.password"));
