@@ -104,7 +104,7 @@ public class BasicPullStrategyTest2 extends ReplicationTestBase {
         }
     }
 
-    private void sync() throws Exception {
+    protected void sync() throws Exception {
         TestStrategyListener listener = new TestStrategyListener();
 
         BasicPullStrategy replicator = new BasicPullStrategy(this.createPullReplication());
