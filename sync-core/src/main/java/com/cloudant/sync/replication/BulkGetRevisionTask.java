@@ -1,7 +1,6 @@
 package com.cloudant.sync.replication;
 
 import com.cloudant.http.HttpConnection;
-import com.cloudant.mazha.CouchClient;
 import com.cloudant.mazha.DocumentRevs;
 import com.cloudant.sync.datastore.DocumentRevsList;
 import com.cloudant.sync.util.JSONUtils;
@@ -18,19 +17,18 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-
 public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
     public static final JsonFactory JSON_FACTORY = new MappingJsonFactory();
 
     private static final String PROXY_URL;
+
     static {
         //check to see if a proxy has been set
         PROXY_URL = System.getProperty("cloudant.db.proxy");
@@ -82,9 +80,8 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
         try {
             if (HttpURLConnection.HTTP_OK == httpConn.getResponseCode()) {
-                DocumentRevsList docRevsList = new DocumentRevsList(parseJsonResponse
-                        (responseStream));
-                return Arrays.asList(docRevsList);
+                return parseJsonResponse
+                        (responseStream);
             } else {
                 throw new Exception("Error received from endpoint " + httpConn.getResponseCode()
                         + " " + httpConn.getResponseMessage());
@@ -94,8 +91,9 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
         }
     }
 
-    static List<DocumentRevs> parseJsonResponse(InputStream responseStream) throws IOException {
-        final List<DocumentRevs> docRevs = new ArrayList<DocumentRevs>();
+    static List<DocumentRevsList> parseJsonResponse(InputStream responseStream) throws IOException {
+        final Map<String, List<DocumentRevs>> docRevsById = new HashMap<String,
+                List<DocumentRevs>>();
         JsonParser parser = JSON_FACTORY.createParser(responseStream);
         if (JsonToken.START_OBJECT == parser.nextToken()
                 && JsonToken.FIELD_NAME == parser.nextToken()
@@ -116,8 +114,14 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
                                     && JsonToken.FIELD_NAME == parser.nextToken()) {
                                 if (parser.getCurrentName().equals("ok") && JsonToken
                                         .START_OBJECT == parser.nextToken()) {
-                                    //read the DocumentRevs and add it to the list
-                                    docRevs.add(parser.readValueAs(DocumentRevs.class));
+                                    //read the DocumentRevs and add to the list for this id
+                                    DocumentRevs revs = parser.readValueAs(DocumentRevs.class);
+                                    List<DocumentRevs> docRevs = docRevsById.get(revs.getId());
+                                    if (docRevs == null) {
+                                        docRevsById.put(revs.getId(), (docRevs = new
+                                                ArrayList<DocumentRevs>()));
+                                    }
+                                    docRevs.add(revs);
                                 } else if (parser.getCurrentName().equals("error")) {
                                     //TODO error case
                                 } else {
@@ -136,6 +140,11 @@ public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
             //TODO error not a results array
         }
 
-        return docRevs;
+        List<DocumentRevsList> allDocRevs = new ArrayList<DocumentRevsList>();
+        for (List<DocumentRevs> docRevs : docRevsById.values()) {
+            allDocRevs.add(new DocumentRevsList(docRevs));
+        }
+
+        return allDocRevs;
     }
 }

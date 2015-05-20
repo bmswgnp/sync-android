@@ -2,13 +2,11 @@ package com.cloudant.sync.replication;
 
 import static org.junit.Assert.assertEquals;
 
-import com.cloudant.mazha.CouchConfig;
-import com.cloudant.mazha.DocumentRevs;
+import com.cloudant.sync.datastore.DocumentRevsList;
 
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
-import java.net.URI;
 import java.util.List;
 
 /**
@@ -24,7 +22,8 @@ public class BulkGetRevisionTaskTest {
                 "\"description\":\"Number 2 test document\",\"name\":\"Test doc 2\"}}]," +
                 "\"id\":\"doc2\"}]}";
 
-        List<DocumentRevs> docRevs = BulkGetRevisionTask.parseJsonResponse(new ByteArrayInputStream(testJson.getBytes()));
-        assertEquals("The DocumentRevs list should have two elements",2, docRevs.size());
+        List<DocumentRevsList> docRevs = BulkGetRevisionTask.parseJsonResponse(new
+                ByteArrayInputStream(testJson.getBytes()));
+        assertEquals("The DocumentRevs list should have two elements", 2, docRevs.size());
     }
 }
