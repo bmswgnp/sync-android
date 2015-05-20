@@ -8,7 +8,6 @@ import com.cloudant.sync.util.JSONUtils;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 
 import org.apache.commons.io.IOUtils;
@@ -21,15 +20,12 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-/**
- * Created by ricellis on 11/05/2015.
- */
+
 public class BulkGetRevisionTask implements Callable<List<DocumentRevsList>> {
 
     public static final JsonFactory JSON_FACTORY = new MappingJsonFactory();
