@@ -25,7 +25,6 @@ import java.net.URL;
  */
 public class Http {
 
-
     // high level http operations, URL and URI flavoured
 
     public static HttpConnection GET(URL url)
