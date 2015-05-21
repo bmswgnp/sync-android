@@ -26,6 +26,17 @@ import java.util.Map;
 
 /**
  * Created by Rhys Short on 15/05/15.
+ *
+ * Adds cookie authentication support to http requests.
+ *
+ * It does this by adding the cookie header for CouchDB
+ * using request filtering pipeline in {@link HttpConnection}.
+ *
+ * If a response has a response code of 401, it will fetch a cookie from
+ * the server using provided credentials and tell {@link HttpConnection} to reply
+ * the request by setting {@link HttpConnectionFilterContext#replayRequest} property to true.
+ *
+ *
  */
 public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectionResponseFilter {
 
@@ -33,6 +44,11 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
     final String cookieRequestBody;
     private String cookie = null;
 
+    /**
+     * Constructs a cookie filter.
+     * @param username The username to use when getting the cookie
+     * @param password The password to use when getting the cookie
+     */
     public CookieFilter(String username, String password){
         Map<String,String> cookieRequestMap = new HashMap<String, String>();
         cookieRequestMap.put("name",username);
@@ -72,20 +88,15 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
 
         }
 
-     String getCookie(URL url){
+     private String getCookie(URL url){
 
         try {
-            StringBuilder sb = new StringBuilder();
-            sb.append(url.getProtocol());
-            sb.append("://");
-            sb.append(url.getHost());
-            sb.append(":");
-            sb.append(url.getPort());
-            sb.append("/_session");
-            URL sessionURL = new URL(sb.toString());
+            URL sessionURL = new URL(String.format("%s://%s:%s/_session",
+                    url.getProtocol(),
+                    url.getHost(),
+                    url.getPort()));
+
             HttpConnection conn = Http.POST(sessionURL, "application/json");
-            conn.responseFilters.clear(); //make sure they get cleared
-            conn.requestFilters.clear();
             conn.setRequestBody(cookieRequestBody.getBytes("UTF-8"));
             String cookieHeader = conn.execute().getConnection().getHeaderField("Set-Cookie");
             return cookieHeader.substring(0,cookieHeader.indexOf(";"));

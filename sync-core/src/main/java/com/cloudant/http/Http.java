@@ -87,16 +87,14 @@ public class Http {
     public static HttpConnection connect(String requestMethod,
                                          URL url,
                                          String contentType) {
-        HttpConnection connection = new HttpConnection(requestMethod, url, contentType);
-        return connection;
+        return new HttpConnection(requestMethod, url, contentType);
     }
 
     public static HttpConnection connect(String requestMethod,
                                          URI uri,
                                          String contentType) {
         try {
-            HttpConnection connection = new HttpConnection(requestMethod, uri.toURL(), contentType);
-            return connection;
+            return new HttpConnection(requestMethod, uri.toURL(), contentType);
         } catch (MalformedURLException mue) {
             return null;
         }
