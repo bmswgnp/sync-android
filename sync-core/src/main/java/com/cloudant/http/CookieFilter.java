@@ -23,6 +23,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Created by Rhys Short on 15/05/15.
@@ -41,6 +43,7 @@ import java.util.Map;
 public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectionResponseFilter {
 
 
+    private final static Logger logger = Logger.getLogger(CookieFilter.class.getCanonicalName());
     final String cookieRequestBody;
     private String cookie = null;
 
@@ -79,10 +82,15 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         if (context.connection.getResponseCode() == 401) {
             //we need to get a new cookie
             cookie = getCookie(connection.getURL());
-            context.replayRequest = true;
-            connection.setRequestProperty("Cookie", cookie);
+            //dont resent request, failed to get cookie
+            if(cookie != null) {
+                context.replayRequest = true;
+                connection.setRequestProperty("Cookie", cookie);
 
-            context = new HttpConnectionFilterContext(context);
+                context = new HttpConnectionFilterContext(context);
+            } else {
+                context.replayRequest = false;
+            }
         }
         return context;
 
@@ -91,7 +99,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
      private String getCookie(URL url){
 
         try {
-            URL sessionURL = new URL(String.format("%s://%s:%s/_session",
+            URL sessionURL = new URL(String.format("%s://%s:%d/_session",
                     url.getProtocol(),
                     url.getHost(),
                     url.getPort()));
@@ -104,11 +112,11 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
 
 
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE,"Failed to create URL for _session endpoint",e);
         } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Failed to encode cookieRequest body", e);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Failed to read cookie response header", e);
         }
 
         return null;
