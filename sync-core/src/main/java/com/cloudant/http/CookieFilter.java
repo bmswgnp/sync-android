@@ -89,7 +89,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                 context = new HttpConnectionFilterContext(context);
             } else {
                 context.replayRequest = false;
-                logger.severe("Cookie is unavailable, cannot reply request");
+                logger.severe("Cookie is unavailable, cannot replay request");
             }
         }
         return context;
