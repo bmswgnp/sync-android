@@ -71,7 +71,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         }
         connection.setRequestProperty("Cookie",cookie);
 
-
         return context;
 
     }
@@ -82,7 +81,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         if (context.connection.getResponseCode() == 401) {
             //we need to get a new cookie
             cookie = getCookie(connection.getURL());
-            //dont resent request, failed to get cookie
+            //don't resend request, failed to get cookie
             if(cookie != null) {
                 context.replayRequest = true;
                 connection.setRequestProperty("Cookie", cookie);
@@ -90,6 +89,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                 context = new HttpConnectionFilterContext(context);
             } else {
                 context.replayRequest = false;
+                logger.severe("Cookie is unavailable, cannot reply request");
             }
         }
         return context;
@@ -108,8 +108,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
             conn.setRequestBody(cookieRequestBody.getBytes("UTF-8"));
             String cookieHeader = conn.execute().getConnection().getHeaderField("Set-Cookie");
             return cookieHeader.substring(0,cookieHeader.indexOf(";"));
-
-
 
         } catch (MalformedURLException e) {
             logger.log(Level.SEVERE,"Failed to create URL for _session endpoint",e);
