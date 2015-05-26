@@ -94,7 +94,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         }
         return context;
 
-        }
+    }
 
      private String getCookie(URL url){
 
