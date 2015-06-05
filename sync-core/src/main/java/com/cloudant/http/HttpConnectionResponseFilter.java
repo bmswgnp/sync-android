@@ -20,15 +20,16 @@ package com.cloudant.http;
  A Response Filter is run after the response is obtained from the
  server but before the output stream is returned to the original client. The Response
  Filter enables two main behaviours:
+<ul>
+  <li>Modifying the response for every request</li>
 
- - Modifying the response for every request
-
- - Replaying a (potentially modified) request by reacting to the
+ <li> Replaying a (potentially modified) request by reacting to the
  response. For example, obtaining a cookie on receipt of a 401
  response code, modifying the "Cookie" header of the original
  request, then setting replayRequest to <code>true</code> to replay the request
  with the new "Cookie" header, see {@link CookieFilter#filterResponse(HttpConnectionFilterContext)}
- for an example of replying requests based on the response code.
+ for an example of replying requests based on the response code.</li>
+ </ul>
 
  Filters are executed in a pipeline and modify the context in a serial fashion.
  */
