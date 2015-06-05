@@ -18,7 +18,6 @@ package com.cloudant.http;
  */
 
 /**
- A <code>HttpConnectionFilter</code> can either be configured as a Request Filter or a Response Filter:
 
  A Request Filter is run before the request is made to the server. It can use headers to add support
  for other authentication methods, for example cookie authentication. See
