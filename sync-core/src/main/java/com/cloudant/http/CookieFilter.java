@@ -84,7 +84,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
             //don't resend request, failed to get cookie
             if(cookie != null) {
                 context.replayRequest = true;
-                connection.setRequestProperty("Cookie", cookie);
 
                 context = new HttpConnectionFilterContext(context);
             } else {
