@@ -44,7 +44,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
 
 
     private final static Logger logger = Logger.getLogger(CookieFilter.class.getCanonicalName());
-    final String cookieRequestBody;
+    final String sessionRequestBody;
     private String cookie = null;
 
     /**
@@ -53,11 +53,11 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
      * @param password The password to use when getting the cookie
      */
     public CookieFilter(String username, String password){
-        Map<String,String> cookieRequestMap = new HashMap<String, String>();
-        cookieRequestMap.put("name",username);
-        cookieRequestMap.put("password",password);
+        Map<String,String> sessionRequestMap = new HashMap<String, String>();
+        sessionRequestMap.put("name", username);
+        sessionRequestMap.put("password", password);
         JSONHelper helper = new JSONHelper();
-        cookieRequestBody = helper.toJson(cookieRequestMap);
+        sessionRequestBody = helper.toJson(sessionRequestMap);
     }
 
 
@@ -105,7 +105,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                     url.getPort()));
 
             HttpConnection conn = Http.POST(sessionURL, "application/json");
-            conn.setRequestBody(cookieRequestBody.getBytes("UTF-8"));
+            conn.setRequestBody(sessionRequestBody.getBytes("UTF-8"));
             String cookieHeader = conn.execute().getConnection().getHeaderField("Set-Cookie");
             return cookieHeader.substring(0,cookieHeader.indexOf(";"));
 
