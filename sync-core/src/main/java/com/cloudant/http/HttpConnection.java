@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.logging.Logger;
 
 
@@ -86,8 +87,8 @@ public class HttpConnection  {
 
     private static String userAgent = getUserAgent();
 
-    public final LinkedList<HttpConnectionRequestFilter> requestFilters;
-    public final LinkedList<HttpConnectionResponseFilter> responseFilters;
+    public final List<HttpConnectionRequestFilter> requestFilters;
+    public final List<HttpConnectionResponseFilter> responseFilters;
 
     //we need to store the response code separately so we don't send a request
     //before we are ready
