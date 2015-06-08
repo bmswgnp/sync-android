@@ -17,6 +17,8 @@ package com.cloudant.http;
  * Created by tomblench on 30/03/15.
  */
 
+import java.net.HttpURLConnection;
+
 /**
 
  A Request Filter is run before the request is made to the server. It can use headers to add support
@@ -31,7 +33,13 @@ package com.cloudant.http;
 public interface HttpConnectionRequestFilter {
 
     /**
-     * Filter the request or response
+     * Filter the request.
+     * This method <strong>must not</strong> do any of the following:
+     * <ul>
+     *     <li>Return null</li>
+     *     <li>Call methods on the underlying {@link java.net.HttpURLConnection} which
+     *     initiate a request such as {@link HttpURLConnection#getResponseCode()}</li>
+     * </ul>
      * @param context Input context
      * @return Output context
      */

@@ -37,6 +37,12 @@ public interface HttpConnectionResponseFilter {
 
     /**
      * Filter the response
+     *
+     * This method <strong>must not</strong> do any of the following
+     * <ul>
+     *     <li>Return null</li>
+     *     <li>Read the response stream</li>
+     * </ul>
      * @param context Input context
      * @return Output context
      */
