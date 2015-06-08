@@ -27,7 +27,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Created by Rhys Short on 15/05/15.
  *
  * Adds cookie authentication support to http requests.
  *
@@ -38,6 +37,9 @@ import java.util.logging.Logger;
  * the server using provided credentials and tell {@link HttpConnection} to reply
  * the request by setting {@link HttpConnectionFilterContext#replayRequest} property to true.
  *
+ * If the request to get the cookie for use in future request fails with a 401 status code
+ * (or any status that indicates client error) cookie authentication will not be attempted again.
+ *
  *
  */
 public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectionResponseFilter {
@@ -46,6 +48,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
     private final static Logger logger = Logger.getLogger(CookieFilter.class.getCanonicalName());
     final String sessionRequestBody;
     private String cookie = null;
+    private boolean shouldAttemptCookieRequest = true;
 
     /**
      * Constructs a cookie filter.
@@ -66,10 +69,12 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
 
         HttpURLConnection connection = context.connection.getConnection();
 
-        if(cookie == null){
-            cookie = getCookie(connection.getURL());
+        if(shouldAttemptCookieRequest) {
+            if (cookie == null) {
+                cookie = getCookie(connection.getURL());
+            }
+            connection.setRequestProperty("Cookie", cookie);
         }
-        connection.setRequestProperty("Cookie",cookie);
 
         return context;
 
@@ -88,7 +93,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                 context = new HttpConnectionFilterContext(context);
             } else {
                 context.replayRequest = false;
-                logger.severe("Cookie is unavailable, cannot replay request");
             }
         }
         return context;
@@ -105,8 +109,29 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
 
             HttpConnection conn = Http.POST(sessionURL, "application/json");
             conn.setRequestBody(sessionRequestBody.getBytes("UTF-8"));
-            String cookieHeader = conn.execute().getConnection().getHeaderField("Set-Cookie");
-            return cookieHeader.substring(0,cookieHeader.indexOf(";"));
+            HttpURLConnection connection = conn.execute().getConnection();
+            String cookieHeader = connection.getHeaderField("Set-Cookie");
+            int responseCode = connection.getResponseCode();
+
+
+            if(responseCode == 401){
+                shouldAttemptCookieRequest  = false;
+                logger.severe("Credentials are incorrect, cookie authentication will not be attempted again");
+            } else if (responseCode / 100 == 5){
+                logger.log(Level.SEVERE,
+                        "Failed to get cookie from server, response code %s, cookie auth",
+                        responseCode);
+            } else if(responseCode / 100 == 2) {
+                return cookieHeader.substring(0, cookieHeader.indexOf(";"));
+            } else {
+                // catch any other response code
+                logger.log(Level.SEVERE,
+                        "Failed to get cookie from server, response code %s, " +
+                                "cookie authentication will not be attempted again",
+                        responseCode);
+                shouldAttemptCookieRequest = false;
+
+            }
 
         } catch (MalformedURLException e) {
             logger.log(Level.SEVERE,"Failed to create URL for _session endpoint",e);
@@ -115,7 +140,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to read cookie response header", e);
         }
-
         return null;
     }
 
