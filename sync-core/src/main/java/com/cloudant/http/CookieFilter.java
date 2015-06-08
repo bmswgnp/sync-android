@@ -108,7 +108,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                     url.getPort()));
 
             HttpConnection conn = Http.POST(sessionURL, "application/json");
-            conn.setRequestBody(sessionRequestBody.getBytes("UTF-8"));
+            conn.setRequestBody(sessionRequestBody);
             HttpURLConnection connection = conn.execute().getConnection();
             String cookieHeader = connection.getHeaderField("Set-Cookie");
             int responseCode = connection.getResponseCode();
