@@ -203,97 +203,101 @@ public class HttpConnection  {
             connection.setDoOutput(true);
             if (inputLength != -1) {
                 // TODO on 1.7 upwards this method takes a long, otherwise int
-                connection.setFixedLengthStreamingMode((int)this.inputLength);
+                connection.setFixedLengthStreamingMode((int) this.inputLength);
             } else {
                 // TODO some situations where we can't do chunking, like multipart/related
                 /// https://issues.apache.org/jira/browse/COUCHDB-1403
                 connection.setChunkedStreamingMode(1024);
             }
 
-        boolean retry = true;
-        int n = numberOfRetries;
-        while (retry && n-- > 0) {
+            boolean retry = true;
+            int n = numberOfRetries;
+            while (retry && n-- > 0) {
 
-            System.setProperty("http.keepAlive", "false");
+                System.setProperty("http.keepAlive", "false");
 
-            //set the response code to -1 again, to cover retries.
-            this.responseCode = -1;
+                //set the response code to -1 again, to cover retries.
+                this.responseCode = -1;
 
-            System.setProperty("http.keepAlive", "false");
+                System.setProperty("http.keepAlive", "false");
 
-            connection = (HttpURLConnection) url.openConnection();
-            for (String key : requestProperties.keySet()) {
-                connection.setRequestProperty(key, requestProperties.get(key));
-            }
-            // always read the result, so we can retrieve the HTTP response code
-            connection.setDoInput(true);
-            connection.setRequestMethod(requestMethod);
-            if (contentType != null) {
-                connection.setRequestProperty("Content-type", contentType);
-            }
-            if (url.getUserInfo() != null) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStream bos = Base64OutputStreamFactory.get(baos);
-                bos.write(url.getUserInfo().getBytes());
-                bos.flush();
-                bos.close();
-                String encodedAuth = baos.toString();
-                connection.setRequestProperty("Authorization", String.format("Basic %s", encodedAuth));
-            }
+                connection = (HttpURLConnection) url.openConnection();
+                for (String key : requestProperties.keySet()) {
+                    connection.setRequestProperty(key, requestProperties.get(key));
+                }
+                // always read the result, so we can retrieve the HTTP response code
+                connection.setDoInput(true);
+                connection.setRequestMethod(requestMethod);
+                if (contentType != null) {
+                    connection.setRequestProperty("Content-type", contentType);
+                }
+                if (url.getUserInfo() != null) {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    OutputStream bos = Base64OutputStreamFactory.get(baos);
+                    bos.write(url.getUserInfo().getBytes());
+                    bos.flush();
+                    bos.close();
+                    String encodedAuth = baos.toString();
+                    connection.setRequestProperty("Authorization", String.format("Basic %s", encodedAuth));
 
-            HttpConnectionFilterContext currentContext = new HttpConnectionFilterContext(this);
 
-            for (HttpConnectionRequestFilter requestFilter : requestFilters) {
-                currentContext = requestFilter.filterRequest(currentContext);
-            }
-
-            if (input != null) {
-                connection.setDoOutput(true);
-                if (inputLength != -1) {
-                    // TODO on 1.7 upwards this method takes a long, otherwise int
-                    connection.setFixedLengthStreamingMode((int)this.inputLength);
-                } else {
-                    // TODO some situations where we can't do chunking, like multipart/related
-                    /// https://issues.apache.org/jira/browse/COUCHDB-1403
-                    connection.setChunkedStreamingMode(1024);
                 }
 
-                // See "8.2.3 Use of the 100 (Continue) Status" in http://tools.ietf.org/html/rfc2616
-                // Attempting to write to the connection's OutputStream may cause an exception to be
-                // thrown. This is useful because it avoids sending large request bodies (such as
-                // attachments) if the server is going to reject our request. Reasons for rejecting
-                // requests could be 401 Unauthorized (eg cookie needs to be refreshed), etc.
-                connection.setRequestProperty("Expect", "100-continue");
+                HttpConnectionFilterContext currentContext = new HttpConnectionFilterContext(this);
 
-                int bufSize = 1024;
-                int nRead = 0;
-                byte[] buf = new byte[bufSize];
-                InputStream is = input;
-                OutputStream os = connection.getOutputStream();
-
-                while((nRead = is.read(buf)) >= 0) {
-                    os.write(buf, 0, nRead);
+                for (HttpConnectionRequestFilter requestFilter : requestFilters) {
+                    currentContext = requestFilter.filterRequest(currentContext);
                 }
-                os.flush();
-                // we do not call os.close() - on some JVMs this incurs a delay of several seconds
-                // see http://stackoverflow.com/questions/19860436
+
+                if (input != null) {
+                    connection.setDoOutput(true);
+                    if (inputLength != -1) {
+                        // TODO on 1.7 upwards this method takes a long, otherwise int
+                        connection.setFixedLengthStreamingMode((int) this.inputLength);
+                    } else {
+                        // TODO some situations where we can't do chunking, like multipart/related
+                        /// https://issues.apache.org/jira/browse/COUCHDB-1403
+                        connection.setChunkedStreamingMode(1024);
+                    }
+
+                    // See "8.2.3 Use of the 100 (Continue) Status" in http://tools.ietf.org/html
+                    // /rfc2616
+                    // Attempting to write to the connection's OutputStream may cause an exception to be
+                    // thrown. This is useful because it avoids sending large request bodies (such as
+                    // attachments) if the server is going to reject our request. Reasons for rejecting
+                    // requests could be 401 Unauthorized (eg cookie needs to be refreshed), etc.
+                    connection.setRequestProperty("Expect", "100-continue");
+
+                    int bufSize = 1024;
+                    int nRead = 0;
+                    byte[] buf = new byte[bufSize];
+                    InputStream is = input;
+                    OutputStream os = connection.getOutputStream();
+
+                    while ((nRead = is.read(buf)) >= 0) {
+                        os.write(buf, 0, nRead);
+                    }
+                    os.flush();
+                    // we do not call os.close() - on some JVMs this incurs a delay of several seconds
+                    // see http://stackoverflow.com/questions/19860436
+                }
+
+                this.responseCode = connection.getResponseCode();
+
+                for (HttpConnectionResponseFilter responseFilter : responseFilters) {
+                    currentContext = responseFilter.filterResponse(currentContext);
+                }
+
+                // retry flag is set from the final step in the response filterRequest pipeline
+                retry = currentContext.replayRequest;
             }
-
-            this.responseCode = connection.getResponseCode();
-
-            for (HttpConnectionResponseFilter responseFilter : responseFilters) {
-                currentContext = responseFilter.filterResponse(currentContext);
+            if (n < 0) {
+                logger.info("Maximum number of retries reached");
             }
-
-            // retry flag is set from the final step in the response filterRequest pipeline
-            retry = currentContext.replayRequest;
         }
-        if(n < 0){
-            logger.info("Maximum number of retries reached");
+            // return ourselves to allow method chaining
+            return this;
         }
-        // return ourselves to allow method chaining
-        return this;
-    }
 
     /**
      * <p>
