@@ -169,43 +169,4 @@ public class HttpTest extends CouchTestBase {
         Assert.assertTrue(jsonRes.containsKey("rev"));
 
     }
-
-    @Test
-    public void testCookieAuthWithRetry() throws IOException {
-
-        if(IGNORE_AUTH_HEADERS){
-            System.err.println("Ignore cookie filters");
-            return;
-        }
-
-        CookieFilter filter = new CookieFilter(System.getProperty("test.couch.username"),System.getProperty("test.couch.password"));
-
-        CouchConfig config = getCouchConfig("cookie_test");
-        CouchClient client = new CouchClient(config);
-        HttpConnection conn = new HttpConnection("POST", config.getRootUri().toURL(),
-                "application/json");
-        conn.responseFilters.add(filter);
-        ByteArrayInputStream bis = new ByteArrayInputStream(data.getBytes());
-
-        // nothing read from stream
-        Assert.assertEquals(bis.available(), data.getBytes().length);
-
-        conn.setRequestBody(bis);
-        conn.execute();
-
-        // stream was read to end
-        Assert.assertEquals(bis.available(), 0);
-        Assert.assertEquals(2, conn.getResponseCode() / 100);
-
-        //check the json
-        JSONHelper helper = new JSONHelper();
-        Map<String,Object> jsonRes = helper.fromJson(new InputStreamReader(conn.getConnection()
-                .getInputStream()));
-
-        Assert.assertTrue(jsonRes.containsKey("ok"));
-        Assert.assertTrue((Boolean)jsonRes.get("ok"));
-        Assert.assertTrue(jsonRes.containsKey("id"));
-        Assert.assertTrue(jsonRes.containsKey("rev"));
-
-    }
 }
