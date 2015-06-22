@@ -44,7 +44,6 @@ import java.util.logging.Logger;
  */
 public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectionResponseFilter {
 
-
     private final static Logger logger = Logger.getLogger(CookieFilter.class.getCanonicalName());
     final String sessionRequestBody;
     private String cookie = null;
@@ -63,7 +62,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         sessionRequestBody = helper.toJson(sessionRequestMap);
     }
 
-
     @Override
     public HttpConnectionFilterContext filterRequest(HttpConnectionFilterContext context) {
 
@@ -77,7 +75,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         }
 
         return context;
-
     }
 
     @Override
@@ -90,7 +87,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                 //don't resend request, failed to get cookie
                 if(cookie != null) {
                     context.replayRequest = true;
-
                     context = new HttpConnectionFilterContext(context);
                 } else {
                     context.replayRequest = false;
@@ -104,7 +100,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
     }
 
      private String getCookie(URL url){
-
         try {
             URL sessionURL = new URL(String.format("%s://%s:%d/_session",
                     url.getProtocol(),
@@ -117,10 +112,10 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
             String cookieHeader = connection.getHeaderField("Set-Cookie");
             int responseCode = connection.getResponseCode();
 
-
             if(responseCode == 401){
                 shouldAttemptCookieRequest  = false;
-                logger.severe("Credentials are incorrect, cookie authentication will not be attempted again");
+                logger.severe("Credentials are incorrect, cookie authentication will not be" +
+                        " attempted again");
             } else if (responseCode / 100 == 5){
                 logger.log(Level.SEVERE,
                         "Failed to get cookie from server, response code %s, cookie auth",
@@ -134,7 +129,6 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                                 "cookie authentication will not be attempted again",
                         responseCode);
                 shouldAttemptCookieRequest = false;
-
             }
 
         } catch (MalformedURLException e) {
@@ -146,6 +140,4 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         }
         return null;
     }
-
-
 }
