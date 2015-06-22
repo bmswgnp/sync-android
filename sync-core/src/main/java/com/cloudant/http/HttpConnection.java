@@ -90,10 +90,6 @@ public class HttpConnection  {
     public final List<HttpConnectionRequestFilter> requestFilters;
     public final List<HttpConnectionResponseFilter> responseFilters;
 
-    //we need to store the response code separately so we don't send a request
-    //before we are ready
-    private int responseCode = -1;
-
     private int numberOfRetries = 10;
 
 
@@ -216,11 +212,6 @@ public class HttpConnection  {
 
                 System.setProperty("http.keepAlive", "false");
 
-                //set the response code to -1 again, to cover retries.
-                this.responseCode = -1;
-
-                System.setProperty("http.keepAlive", "false");
-
                 connection = (HttpURLConnection) url.openConnection();
                 for (String key : requestProperties.keySet()) {
                     connection.setRequestProperty(key, requestProperties.get(key));
@@ -281,8 +272,6 @@ public class HttpConnection  {
                     // we do not call os.close() - on some JVMs this incurs a delay of several seconds
                     // see http://stackoverflow.com/questions/19860436
                 }
-
-                this.responseCode = connection.getResponseCode();
 
                 for (HttpConnectionResponseFilter responseFilter : responseFilters) {
                     currentContext = responseFilter.filterResponse(currentContext);
@@ -400,13 +389,4 @@ public class HttpConnection  {
             return defaultUserAgent;
         }
     }
-    /**
-     * Get the response code for the request
-     * @return The http response code for the request or -1 if the
-     * request has not been sent yet.
-     */
-    public int getResponseCode() {
-        return this.responseCode;
-    }
-
 }
