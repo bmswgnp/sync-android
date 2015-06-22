@@ -139,7 +139,8 @@ public class HttpTest extends CouchTestBase {
             return;
         }
 
-        CookieFilter filter = new CookieFilter(System.getProperty("test.couch.username"),System.getProperty("test.couch.password"));
+        CookieFilter filter = new CookieFilter(System.getProperty("test.couch.username"),
+                System.getProperty("test.couch.password"));
 
         CouchConfig config = getCouchConfig("cookie_test");
         HttpConnection conn = new HttpConnection("POST", config.getRootUri().toURL(),
