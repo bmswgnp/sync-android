@@ -157,7 +157,7 @@ public class HttpTest extends CouchTestBase {
 
         // stream was read to end
         Assert.assertEquals(bis.available(), 0);
-        Assert.assertEquals(2, conn.getResponseCode() / 100);
+        Assert.assertEquals(2, conn.getConnection().getResponseCode() / 100);
 
         //check the json
         JSONHelper helper = new JSONHelper();
