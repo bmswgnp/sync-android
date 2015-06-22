@@ -291,7 +291,7 @@ public class HttpConnection  {
                 // retry flag is set from the final step in the response filterRequest pipeline
                 retry = currentContext.replayRequest;
             }
-            if (n < 0) {
+            if (n == 0) {
                 logger.info("Maximum number of retries reached");
             }
         }
