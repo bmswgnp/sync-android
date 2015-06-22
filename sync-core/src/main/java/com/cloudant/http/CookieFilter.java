@@ -83,17 +83,21 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
     @Override
     public HttpConnectionFilterContext filterResponse(HttpConnectionFilterContext context) {
         HttpURLConnection connection = context.connection.getConnection();
-        if (context.connection.getResponseCode() == 401) {
-            //we need to get a new cookie
-            cookie = getCookie(connection.getURL());
-            //don't resend request, failed to get cookie
-            if(cookie != null) {
-                context.replayRequest = true;
+        try {
+            if (context.connection.getConnection().getResponseCode() == 401) {
+                //we need to get a new cookie
+                cookie = getCookie(connection.getURL());
+                //don't resend request, failed to get cookie
+                if(cookie != null) {
+                    context.replayRequest = true;
 
-                context = new HttpConnectionFilterContext(context);
-            } else {
-                context.replayRequest = false;
+                    context = new HttpConnectionFilterContext(context);
+                } else {
+                    context.replayRequest = false;
+                }
             }
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Failed to get response code from request",e);
         }
         return context;
 
