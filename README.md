@@ -38,10 +38,11 @@ a dependency via [maven][maven] or [gradle][gradle].
 [maven]: http://maven.apache.org/
 [gradle]: http://www.gradle.org/
 
-There are currently three jar files for the datastore:
+There are currently four jar files for the datastore:
 
 * `cloudant-sync-datastore-core`: the main datastore classes.
 * `cloudant-sync-datastore-android`: Android specific classes.
+* `cloudant-sync-datastore-android-encryption`: Android encryption specific classes.
 * `cloudant-sync-datastore-javase`: Java SE specific classes.
 
 ### Gradle
@@ -58,8 +59,10 @@ repositories {
 dependencies {
     // Other dependencies
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-core', version:'0.12.1'
-    // include this if you're targeting Android
+    // include this if you're targeting Android and do not want datastore encryption
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-android', version:'0.12.1'
+    // include this if you're targeting Android and want datastore encryption
+    compile group: 'com.cloudant', name: 'cloudant-sync-datastore-android-encryption', version:'0.12.1'
     // include this if you're targeting Java SE
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-javase', version:'0.12.1'
 }
@@ -94,10 +97,17 @@ It's a similar story in maven, add the repo and the dependency:
       <version>0.12.1</version>
       <scope>compile</scope>
     </dependency>
-    <!-- include this if you're targeting Android -->
+    <!-- include this if you're targeting Android and do not want datastore encryption -->
     <dependency>
       <groupId>com.cloudant</groupId>
       <artifactId>cloudant-sync-datastore-android</artifactId>
+      <version>0.12.1</version>
+      <scope>compile</scope>
+    </dependency>
+    <!-- include this if you're targeting Android and want datastore encryption -->
+    <dependency>
+      <groupId>com.cloudant</groupId>
+      <artifactId>cloudant-sync-datastore-android-encryption</artifactId>
       <version>0.12.1</version>
       <scope>compile</scope>
     </dependency>
