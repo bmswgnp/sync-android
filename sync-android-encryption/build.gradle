@@ -14,6 +14,7 @@ dependencies {
 sourceSets {
     test {
         java {
+            // Make the TestUtils class visible to our tests.
             include '../sync-core/src/test/java/'
         }
     }
