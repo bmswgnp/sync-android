@@ -59,9 +59,11 @@ repositories {
 dependencies {
     // Other dependencies
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-core', version:'0.12.1'
-    // include this if you're targeting Android and do not want datastore encryption
+    // include this if you're targeting Android. If you also want datastore encryption
+    // you will need to include cloudant-sync-datastore-android-encryption as well (see below).
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-android', version:'0.12.1'
-    // include this if you're targeting Android and want datastore encryption
+    // include this if you're targeting Android and want datastore encryption. You will also need
+    // cloudant-sync-datastore-android (see above).
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-android-encryption', version:'0.12.1'
     // include this if you're targeting Java SE
     compile group: 'com.cloudant', name: 'cloudant-sync-datastore-javase', version:'0.12.1'
@@ -97,14 +99,16 @@ It's a similar story in maven, add the repo and the dependency:
       <version>0.12.1</version>
       <scope>compile</scope>
     </dependency>
-    <!-- include this if you're targeting Android and do not want datastore encryption -->
+    <!-- include this if you're targeting Android. If you also want datastore encryption
+         you will need to include cloudant-sync-datastore-android-encryption as well (see below). -->
     <dependency>
       <groupId>com.cloudant</groupId>
       <artifactId>cloudant-sync-datastore-android</artifactId>
       <version>0.12.1</version>
       <scope>compile</scope>
     </dependency>
-    <!-- include this if you're targeting Android and want datastore encryption -->
+    <!-- include this if you're targeting Android and want datastore encryption. You will also need
+         cloudant-sync-datastore-android (see above). -->
     <dependency>
       <groupId>com.cloudant</groupId>
       <artifactId>cloudant-sync-datastore-android-encryption</artifactId>
