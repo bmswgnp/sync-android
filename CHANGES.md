@@ -2,6 +2,7 @@
 
 - [NEW] Added query support for the `$mod` operator.
 - [NEW] Added query support for the `$size` operator.
+- [FIX] Fixed issue where at least one index had to be created before a query would execute.  You can now query for documents without the existence of any indexes.
 
 # 0.12.1 (2015-06-12)
 
