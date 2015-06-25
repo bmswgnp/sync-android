@@ -14,6 +14,9 @@
 
 package com.cloudant.sync.datastore;
 
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+
 import com.cloudant.sync.sqlite.Cursor;
 import com.cloudant.sync.sqlite.SQLDatabase;
 import com.cloudant.sync.sqlite.SQLQueueCallable;
@@ -21,12 +24,9 @@ import com.cloudant.sync.util.CouchUtils;
 import com.cloudant.sync.util.DatabaseUtils;
 
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,9 +34,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
-
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
 
 public class BasicDatastoreCRUDTest extends BasicDatastoreTestBase {
 
@@ -555,6 +552,13 @@ public class BasicDatastoreCRUDTest extends BasicDatastoreTestBase {
         // Test count and offsets for descending and ascending
         getAllDocuments_testCountAndOffset(objectCount, documentRevisions, false);
         getAllDocuments_testCountAndOffset(objectCount, reversedObjects, true);
+    }
+
+    @Test
+    public void getAllDocumentIds() throws Exception {
+        Assert.assertTrue(datastore.getAllDocumentIds().isEmpty());
+        createTwoDocuments();
+        Assert.assertEquals(2, datastore.getAllDocumentIds().size());
     }
 
     @Test
