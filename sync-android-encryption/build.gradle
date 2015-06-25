@@ -45,7 +45,7 @@ publishing {
             pom.withXml {
                 Node rootNode = asNode()
 
-                rootNode.appendNode('name', 'Cloudant Sync Datastore Android: Android components')
+                rootNode.appendNode('name', 'Cloudant Sync Datastore Android: Android Encryption components')
                 rootNode.appendNode('description', 'A JSON document datastore that syncs')
                 rootNode.appendNode('url', 'https://cloudant.com/')
                 rootNode.appendNode('packaging', 'jar')
