@@ -163,49 +163,6 @@ public class HttpConnection  {
      * @throws IOException if there was a problem writing data to the server
      */
     public HttpConnection execute() throws IOException {
-        System.setProperty("http.keepAlive", "false");
-        connection = (HttpURLConnection) url.openConnection();
-        // always read the result, so we can retrieve the HTTP response code
-        connection.setDoInput(true);
-        connection.setRequestMethod(requestMethod);
-
-        // Set request headers
-        List<String> lowerCaseExistingHeaders = new ArrayList<String>();
-        for (String key : requestProperties.keySet()) {
-            connection.setRequestProperty(key, requestProperties.get(key));
-            lowerCaseExistingHeaders.add(key.toLowerCase());
-        }
-
-
-        if (contentType != null && !lowerCaseExistingHeaders.contains("content-type")) {
-            connection.setRequestProperty("Content-type", contentType);
-        }
-
-        if (!lowerCaseExistingHeaders.contains("user-agent")) {
-            connection.setRequestProperty("User-Agent", userAgent);
-        }
-
-        if (url.getUserInfo() != null && !lowerCaseExistingHeaders.contains("authorization")) {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            OutputStream bos = Base64OutputStreamFactory.get(baos);
-            bos.write(url.getUserInfo().getBytes());
-            bos.flush();
-            bos.close();
-            String encodedAuth = baos.toString();
-            connection.setRequestProperty("Authorization", String.format("Basic %s", encodedAuth));
-        }
-
-        if (input != null) {
-            connection.setDoOutput(true);
-            if (inputLength != -1) {
-                // TODO on 1.7 upwards this method takes a long, otherwise int
-                connection.setFixedLengthStreamingMode((int) this.inputLength);
-            } else {
-                // TODO some situations where we can't do chunking, like multipart/related
-                /// https://issues.apache.org/jira/browse/COUCHDB-1403
-                connection.setChunkedStreamingMode(1024);
-            }
-
             boolean retry = true;
             int n = numberOfRetries;
             while (retry && n-- > 0) {
@@ -216,6 +173,19 @@ public class HttpConnection  {
                 for (String key : requestProperties.keySet()) {
                     connection.setRequestProperty(key, requestProperties.get(key));
                 }
+
+                connection.setRequestProperty("User-Agent", userAgent);
+                if (url.getUserInfo() != null) {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    OutputStream bos = Base64OutputStreamFactory.get(baos);
+                    bos.write(url.getUserInfo().getBytes());
+                    bos.flush();
+                    bos.close();
+                    String encodedAuth = baos.toString();
+                    connection.setRequestProperty("Authorization", String.format("Basic %s", encodedAuth));
+                }
+
+
                 // always read the result, so we can retrieve the HTTP response code
                 connection.setDoInput(true);
                 connection.setRequestMethod(requestMethod);
@@ -279,11 +249,11 @@ public class HttpConnection  {
 
                 // retry flag is set from the final step in the response filterRequest pipeline
                 retry = currentContext.replayRequest;
+
+                if (n == 0) {
+                    logger.info("Maximum number of retries reached");
+                }
             }
-            if (n == 0) {
-                logger.info("Maximum number of retries reached");
-            }
-        }
             // return ourselves to allow method chaining
             return this;
         }
