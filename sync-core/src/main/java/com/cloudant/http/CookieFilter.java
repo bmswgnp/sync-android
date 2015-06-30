@@ -17,6 +17,8 @@ package com.cloudant.http;
 import com.cloudant.mazha.json.JSONHelper;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -48,6 +50,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
     final String sessionRequestBody;
     private String cookie = null;
     private boolean shouldAttemptCookieRequest = true;
+    private final String username;
 
     /**
      * Constructs a cookie filter.
@@ -60,6 +63,7 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         sessionRequestMap.put("password", password);
         JSONHelper helper = new JSONHelper();
         sessionRequestBody = helper.toJson(sessionRequestMap);
+        this.username = username;
     }
 
     @Override
@@ -121,7 +125,13 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
                         "Failed to get cookie from server, response code %s, cookie auth",
                         responseCode);
             } else if(responseCode / 100 == 2) {
-                return cookieHeader.substring(0, cookieHeader.indexOf(";"));
+
+                if(responseLooksOkay(connection.getInputStream())) {
+                    return cookieHeader.substring(0, cookieHeader.indexOf(";"));
+                } else {
+                    return null;
+                }
+
             } else {
                 // catch any other response code
                 logger.log(Level.SEVERE,
@@ -139,5 +149,36 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
             logger.log(Level.SEVERE, "Failed to read cookie response header", e);
         }
         return null;
+    }
+
+    private boolean responseLooksOkay(InputStream responseStream){
+        //check the response bod
+        JSONHelper jsonHelper = new JSONHelper();
+        Map<String,Object> jsonResponse = jsonHelper.fromJson(new InputStreamReader(responseStream));
+        boolean responseLooksOkay = true;
+
+        responseLooksOkay = (Boolean)jsonResponse.getOrDefault("ok",Boolean.FALSE) && responseLooksOkay;
+
+        //check the username
+
+        responseLooksOkay = jsonResponse.containsKey("userCtx") && responseLooksOkay;
+
+        //we should bail if userCtx doesn't exist
+        if(responseLooksOkay) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> userCtx = (Map<String, Object>) jsonResponse.get("userCtx");
+
+            responseLooksOkay = userCtx.containsKey("name") && responseLooksOkay;
+
+            if(responseLooksOkay){
+
+                responseLooksOkay = userCtx.get("name").equals(this.username) && responseLooksOkay;
+
+            }
+
+        }
+
+        return responseLooksOkay;
+
     }
 }
