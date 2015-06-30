@@ -157,25 +157,30 @@ public  class CookieFilter implements HttpConnectionRequestFilter, HttpConnectio
         Map<String,Object> jsonResponse = jsonHelper.fromJson(new InputStreamReader(responseStream));
         boolean responseLooksOkay = true;
 
-        responseLooksOkay = (Boolean)jsonResponse.getOrDefault("ok",Boolean.FALSE) && responseLooksOkay;
+        responseLooksOkay = jsonResponse.containsKey("ok") && responseLooksOkay;
 
-        //check the username
-
-        responseLooksOkay = jsonResponse.containsKey("userCtx") && responseLooksOkay;
-
-        //we should bail if userCtx doesn't exist
         if(responseLooksOkay) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> userCtx = (Map<String, Object>) jsonResponse.get("userCtx");
+            responseLooksOkay = (Boolean) jsonResponse.get("ok") && responseLooksOkay;
 
-            responseLooksOkay = userCtx.containsKey("name") && responseLooksOkay;
+            //check the username
 
-            if(responseLooksOkay){
+            responseLooksOkay = jsonResponse.containsKey("userCtx") && responseLooksOkay;
 
-                responseLooksOkay = userCtx.get("name").equals(this.username) && responseLooksOkay;
+            //we should bail if userCtx doesn't exist
+            if (responseLooksOkay) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> userCtx = (Map<String, Object>) jsonResponse.get("userCtx");
+
+                responseLooksOkay = userCtx.containsKey("name") && responseLooksOkay;
+
+                if (responseLooksOkay) {
+
+                    responseLooksOkay = userCtx.get("name").equals(this.username) && responseLooksOkay;
+
+
+                }
 
             }
-
         }
 
         return responseLooksOkay;
