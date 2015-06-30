@@ -14,6 +14,7 @@
 
 package com.cloudant.sync.datastore;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 
@@ -557,8 +558,15 @@ public class BasicDatastoreCRUDTest extends BasicDatastoreTestBase {
     @Test
     public void getAllDocumentIds() throws Exception {
         Assert.assertTrue(datastore.getAllDocumentIds().isEmpty());
-        createTwoDocuments();
-        Assert.assertEquals(2, datastore.getAllDocumentIds().size());
+        MutableDocumentRevision rev = new MutableDocumentRevision();
+        rev.docId = "document-one";
+        rev.body = bodyOne;
+        datastore.createDocumentFromRevision(rev);
+        rev.docId = "document-two";
+        rev.body = bodyTwo;
+        datastore.createDocumentFromRevision(rev);
+        Assert.assertThat(datastore.getAllDocumentIds(), containsInAnyOrder("document-one",
+                                                                            "document-two"));
     }
 
     @Test
